@@ -15,6 +15,10 @@
 
 #define ind(i, j) ((i + gs) + (j + gs) * N[0])
 
+#define absPos(i, j, start, range) (())
+
+#define relPos(i, j, start, range) ()
+
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
 double K = 2.0; /* Модуль упругости. */
@@ -28,6 +32,8 @@ int N[2] = {100, 100};
 double H[2] = {100.0, 100.0};
 
 double R = 10.0; /* Размер области возмущения. */
+
+MPI_Datatype phase_type;
 
 double max(double a, double b) { return a > b ? a : b; }
 double min(double a, double b) { return a > b ? b : a; }
@@ -183,13 +189,28 @@ int main(int argc, char **argv)
 	double o[2] = {0.0, 0.0};
 	double dt = c * min(h[0], h[1]) / c1(K, rho); /* Шаг интегрирования по времени. */
 	int steps = (int)(T / dt);
-	node_t *u  = (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
-	node_t *u1 = (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
-	int i;
+	node_t *u, *u1;
+	node_t *send_buf;
+	int i, rank, count;
 	char buf[256];
 	const char *save[3] = {"p", "vx", "vy"};
 	double t = 0.0;
+	MPI_Status st;
+
+	MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &count);
+
+	MPI_Type_contiguous(3, MPI_DOUBLE, &phase_type);
+	MPI_Type_commit(&phase_type);
 	
+	if (!rank) {
+		u =  (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
+		u1 = (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
+	} else {
+		u = (node_t*)malloc(sizeof(node_t));
+		u1 = (node_t*)malloc(sizeof(node_t));
+	}
 	init(u, h, o);
 	for (i = 0; i < steps; i++) {
 		/* Сохраняем посчитанные значения. */
@@ -207,5 +228,6 @@ int main(int argc, char **argv)
 	}
 	free(u);
 	free(u1);
+	//MPI_Finalize();
 	return 0;
 }
