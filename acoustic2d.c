@@ -15,10 +15,10 @@
 
 #define ind(i, j) ((i + gs) + (j + gs) * N[0])
 
-#define relPos(i, j, x_range) (i + (j * x_range))
+#define relPos(i, j, x_range) ((i + gs) + ((j + gs) * x_range))
 
-#define absPosx(z, x_start, x_range) ((z % x_range) + x_start)
-#define absPosy(z, y_start, y_range) ((z / y_range) + y_start)
+#define absPosX(z, x_start, x_range) ((z % x_range) + x_start)
+#define absPosY(z, y_start, y_range) ((z / y_range) + y_start)
 
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
@@ -59,10 +59,10 @@ typedef struct {
 
 /* Тип, задающий границы области вычисления процесса */
 typedef struct {
-	int startx; /* Левый верхний угол в абсолютных, x */
-	int starty; /* Левый верхний угол в абсолютных, y */
-	int rangex; /* Сторона прямоугольника, x */
-	int rangey; /* Сторона прямоугольника, y */
+	int startX; /* Левый верхний угол в абсолютных, x */
+	int startY; /* Левый верхний угол в абсолютных, y */
+	int rangeX; /* Сторона прямоугольника, x */
+	int rangeY; /* Сторона прямоугольника, y */
 } range_t;
 
 range_t range;
@@ -200,7 +200,7 @@ void init(node_t *u, const double h[2], const double o[2])
 void perform_send_results(node_t *u) {
 	int i;
 
-	for (i = 0; i < range.rangex * range.rangey; i++) {
+	for (i = 0; i < range.rangeX * range.rangeY; i++) {
 
 	}
 }
@@ -208,10 +208,10 @@ void perform_send_results(node_t *u) {
 /* Вычисляем границы прямоугольника для одного процесса */
 range_t get_ranges(int rank, int count) {
 	range_t result;
-	result.startx = result.rangex * processXIndex(rank, count);
-	result.starty = result.rangey * processYIndex(rank, count);
-	result.rangex = N[0] / (int)sqrt(count);
-	result.rangey = N[1] / (int)sqrt(count);
+	result.startX = result.rangeX * processXIndex(rank, count);
+	result.startY = result.rangeY * processYIndex(rank, count);
+	result.rangeX = N[0] / (int)sqrt(count);
+	result.rangeY = N[1] / (int)sqrt(count);
 	return result;
 }
 
@@ -262,8 +262,8 @@ int main(int argc, char **argv)
 			ranges[j] = get_ranges(j, count);
 		}
 	} else {
-		u = (node_t*)malloc(sizeof(node_t) * (range.rangex + 2 * gs) * (range.rangey + 2 * gs));
-		u1 = (node_t*)malloc(sizeof(node_t) * (range.rangex + 2 * gs) * (range.rangey + 2 * gs));
+		u = (node_t*)malloc(sizeof(node_t) * (range.rangeX + 2 * gs) * (range.rangeY + 2 * gs));
+		u1 = (node_t*)malloc(sizeof(node_t) * (range.rangeX + 2 * gs) * (range.rangeY + 2 * gs));
 	}
 
 	for (i = 0; i < steps; i++) {
@@ -271,11 +271,11 @@ int main(int argc, char **argv)
 		/* Принимаем результаты в записывающий процесс */
 		if (!rank && i) { // если процесс первый и такт вычисления не нулевой
 			for (j = 1; j < count; j++) {
-				send_size = ranges[j].rangex * ranges[j].rangey;
+				send_size = ranges[j].rangeX * ranges[j].rangeY;
 				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
 				for (z = 0; z < send_size; z++) {
-					u[ind(absPosx(z, ranges[j].startx, ranges[j].rangex), absPosy(z, ranges[j].starty, ranges[j].rangey))] = send_buf[z];
+					u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
 				}
 				free(send_buf);
 			}
