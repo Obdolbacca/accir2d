@@ -17,8 +17,8 @@
 
 #define relPos(i, j, x_range) (i + (j * x_range))
 
-#define absPosx(z, x_start, y_start, x_range, y_range) ((z % x_range) + x_start)
-#define absPosy(z, x_start, y_start, x_range, y_range) ((z / y_range) + y_start)
+#define absPosx(z, x_start, x_range) ((z % x_range) + x_start)
+#define absPosy(z, y_start, y_range) ((z / y_range) + y_start)
 
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
@@ -265,7 +265,7 @@ int main(int argc, char **argv)
 				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
 				for (z = 0; z < send_size; z++) {
-					u[relPos(z, ranges[j].startx)] = 
+					u[ind(absPosx(z, ranges[j].startx, ranges[j].rangex), absPosy(z, ranges[j].starty, ranges[j].rangey))] = send_buf[z];
 				}
 				free(send_buf);
 			}
