@@ -36,8 +36,12 @@ double R = 10.0; /* Размер области возмущения. */
 
 MPI_Datatype phase_type;
 
-double max(double a, double b) { return a > b ? a : b; }
-double min(double a, double b) { return a > b ? b : a; }
+static inline double max(double a, double b) { return a > b ? a : b; }
+static inline double min(double a, double b) { return a > b ? b : a; }
+
+static inline int processXIndex(rank, count) { return (rank % (int)sqrt(count)); }
+static inline int processYIndex(rank, count) { return (rank / (int)sqrt(count)); }
+static inline int processCount(count) { return sqrt(count); }
 
 double minmax(double a, double b, double x)
 {
@@ -204,10 +208,10 @@ void perform_send_results(node_t *u) {
 /* Вычисляем границы прямоугольника для одного процесса */
 range_t get_ranges(int rank, int count) {
 	range_t result;
-	result.startx = N[0] / ;
-	result.starty = ;
-	result.rangex = N[0] / (count / 2);
-	result.rangey = ;
+	result.startx = result.rangex * processXIndex(rank, count);
+	result.starty = result.rangey * processYIndex(rank, count);
+	result.rangex = N[0] / (int)sqrt(count);
+	result.rangey = N[1] / (int)sqrt(count);
 	return result;
 }
 
@@ -220,7 +224,7 @@ int main(int argc, char **argv)
 	int steps = (int)(T / dt);
 	node_t *u, *u1;
 	node_t *send_buf;
-	int i, j, rank, count;
+	int i, j, z, rank, count;
 	char buf[256];
 	const char *save[3] = {"p", "vx", "vy"};
 	double t = 0.0;
@@ -232,7 +236,7 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &count);
 
-	if ((count % 4) || count > 25) {
+	if (!((count == 4) || (count == 16))) {
 		if (!rank) printf("Process count correct must be 4 or 16. Current is %d\n", count);
 		MPI_Finalize();
 		exit(0);
@@ -251,6 +255,12 @@ int main(int argc, char **argv)
 		init(u, h, o);
 
 		ranges = (range_t*)malloc(sizeof(range_t) * count);
+
+		ranges[0] = range;
+
+		for (j = 1; j < count; j++) {
+			ranges[j] = get_ranges(j, count);
+		}
 	} else {
 		u = (node_t*)malloc(sizeof(node_t) * (range.rangex + 2 * gs) * (range.rangey + 2 * gs));
 		u1 = (node_t*)malloc(sizeof(node_t) * (range.rangex + 2 * gs) * (range.rangey + 2 * gs));
