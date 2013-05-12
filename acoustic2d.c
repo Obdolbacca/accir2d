@@ -232,8 +232,8 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &count);
 
-	if ((count % 4) || count > 92) {
-		if (!rank) printf("Process count correct must be multiple to 4 and not be greater than 92. Current is %d\n", count);
+	if ((count % 4) || count > 25) {
+		if (!rank) printf("Process count correct must be multiple 4 or 16. Current is %d\n", count);
 		MPI_Finalize();
 		exit(0);
 	}
