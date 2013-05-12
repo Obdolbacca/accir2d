@@ -17,6 +17,9 @@
 
 #define relPos(i, j, x_range) (i + (j * x_range))
 
+#define absPosx(z, x_start, y_start, x_range, y_range) ((z % x_range) + x_start)
+#define absPosy(z, x_start, y_start, x_range, y_range) ((z / y_range) + y_start)
+
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
 double K = 2.0; /* Модуль упругости. */
@@ -223,6 +226,7 @@ int main(int argc, char **argv)
 	double t = 0.0;
 	MPI_Status st;
 	range_t *ranges;
+	int send_size;
 
 	MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -257,9 +261,12 @@ int main(int argc, char **argv)
 		/* Принимаем результаты в записывающий процесс */
 		if (!rank && i) { // если процесс первый и такт вычисления не нулевой
 			for (j = 1; j < count; j++) {
-				send_buf = (node_t*)malloc(sizeof(node_t) * ranges[j].rangex * ranges[j].rangey);
-				MPI_Recv();
-
+				send_size = ranges[j].rangex * ranges[j].rangey;
+				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
+				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
+				for (z = 0; z < send_size; z++) {
+					u[relPos(z, ranges[j].startx)] = 
+				}
 				free(send_buf);
 			}
 		}
