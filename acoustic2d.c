@@ -15,9 +15,7 @@
 
 #define ind(i, j) ((i + gs) + (j + gs) * N[0])
 
-#define absPos(i, j, start, range) (())
-
-#define relPos(i, j, start, range) ()
+#define relPos(i, j, x_range) (i + (j * x_range))
 
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
@@ -51,6 +49,16 @@ typedef struct {
 	double vx; /* Скорость. */
 	double vy;
 } node_t;
+
+/* Тип, задающий границы области вычисления процесса */
+typedef struct {
+	int startx; /* Левый верхний угол в абсолютных, x */
+	int starty; /* Левый верхний угол в абсолютных, y */
+	int rangex; /* Сторона прямоугольника, x */
+	int rangey; /* Сторона прямоугольника, y */
+} range_t;
+
+range_t range;
 
 /* Скорость звука. */
 double c1(const double K, const double rho) { return sqrt(K / rho); }
@@ -182,6 +190,24 @@ void init(node_t *u, const double h[2], const double o[2])
 	}
 }
 
+void perform_send_results(node_t *u) {
+	int i;
+
+	for (i = 0; i < range.rangex * range.rangey; i++) {
+
+	}
+}
+
+/* Вычисляем границы прямоугольника для одного процесса */
+range_t get_ranges(int rank, int count) {
+	range_t result;
+	result.startx = N[0] / ;
+	result.starty = ;
+	result.rangex = N[0] / (count / 2);
+	result.rangey = ;
+	return result;
+}
+
 int main(int argc, char **argv)
 {
 	/* Шаг сетки. */
@@ -191,30 +217,55 @@ int main(int argc, char **argv)
 	int steps = (int)(T / dt);
 	node_t *u, *u1;
 	node_t *send_buf;
-	int i, rank, count;
+	int i, j, rank, count;
 	char buf[256];
 	const char *save[3] = {"p", "vx", "vy"};
 	double t = 0.0;
 	MPI_Status st;
+	range_t *ranges;
 
 	MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &count);
 
+	if ((count % 4) || count > 92) {
+		if (!rank) printf("Process count correct must be multiple to 4 and not be greater than 92. Current is %d\n", count);
+		MPI_Finalize();
+		exit(0);
+	}
+
+	printf("%lf\n", dt);
+
 	MPI_Type_contiguous(3, MPI_DOUBLE, &phase_type);
 	MPI_Type_commit(&phase_type);
+
+	range = get_ranges(rank, count);
 	
 	if (!rank) {
 		u =  (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
 		u1 = (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
+		init(u, h, o);
+
+		ranges = (range_t*)malloc(sizeof(range_t) * count);
 	} else {
-		u = (node_t*)malloc(sizeof(node_t));
-		u1 = (node_t*)malloc(sizeof(node_t));
+		u = (node_t*)malloc(sizeof(node_t) * (range.rangex + 2 * gs) * (range.rangey + 2 * gs));
+		u1 = (node_t*)malloc(sizeof(node_t) * (range.rangex + 2 * gs) * (range.rangey + 2 * gs));
 	}
-	init(u, h, o);
+
 	for (i = 0; i < steps; i++) {
+
+		/* Принимаем результаты в записывающий процесс */
+		if (!rank && i) { // если процесс первый и такт вычисления не нулевой
+			for (j = 1; j < count; j++) {
+				send_buf = (node_t*)malloc(sizeof(node_t) * ranges[j].rangex * ranges[j].rangey);
+				MPI_Recv();
+
+				free(send_buf);
+			}
+		}
+
 		/* Сохраняем посчитанные значения. */
-		if (i % savec == 0) {
+		if (i % savec == 0 && !rank) {
 			sprintf(buf, "data_%06d.vtk", i);
 			write_to_vtk2d((double*)u, buf, save, N, o, h, gs, 3);
 		}
@@ -222,12 +273,15 @@ int main(int argc, char **argv)
 		/* Обновляем значение. */
 		stepx(u, u1);
 		stepy(u1, u);
+
+		if (rank) perform_send_results(u);
 		
 		/* Счетчик времени. */
 		t += dt;
 	}
 	free(u);
 	free(u1);
-	//MPI_Finalize();
+	if (!rank) free(ranges);
+	MPI_Finalize();
 	return 0;
 }
