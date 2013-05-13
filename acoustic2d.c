@@ -232,7 +232,6 @@ void get_bounds_x(node_t *u, int rank, int count) {
 	MPI_Status st;
 
 	if (prevXProcess(rank, count) != -1) {
-		printf("it's me, %d, prev x!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
 		MPI_Recv(buf, range.rangeY * gs, phase_type, prevXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
 		z = 0;
@@ -246,9 +245,8 @@ void get_bounds_x(node_t *u, int rank, int count) {
 	}
 
 	if (nextXProcess(rank, count) != -1) {
-		printf("it's me, %d, next x!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
-		MPI_Recv(buf, range.rangeY * gs, phase_type, nextXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
+		MPI_Recv(buf, (range.rangeY * gs), phase_type, nextXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
 			for (i = range.rangeX + 1; i <= range.rangeX + gs; i++) {
@@ -266,10 +264,8 @@ void get_bounds_y(node_t *u, int rank, int count) {
 	MPI_Status st;
 
 	if (prevYProcess(rank, count) != -1) {
-		printf("it's me recv, %d, prev y!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
 
-		printf("%p\n", (void*)buf);
 		MPI_Recv(buf, range.rangeX * gs, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
@@ -282,7 +278,6 @@ void get_bounds_y(node_t *u, int rank, int count) {
 	}
 
 	if (nextYProcess(rank, count) != -1) {
-		printf("it's me, %d, next y!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
 		MPI_Recv(buf, range.rangeX * gs, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
 		z = 0;
@@ -301,7 +296,6 @@ void send_bonds_y(node_t *u, int rank, int count) {
 	int i, j, z;
 
 	if (prevYProcess(rank, count) != -1) {
-		printf("it's me sent, %d, prev y!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
 		
 
@@ -317,7 +311,6 @@ void send_bonds_y(node_t *u, int rank, int count) {
 	}
 
 	if (nextYProcess(rank, count) != -1) {
-		printf("it's me, %d, next y!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
 		
 		z = 0;
@@ -338,7 +331,7 @@ void send_bonds_x(node_t *u, int rank, int count) {
 
 	if (prevXProcess(rank, count) != -1) {
 
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
 
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
@@ -353,7 +346,7 @@ void send_bonds_x(node_t *u, int rank, int count) {
 
 	if (nextXProcess(rank, count) != -1) {
 
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
 
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
