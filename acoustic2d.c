@@ -203,11 +203,18 @@ void init(node_t *u, const double h[2], const double o[2])
 }
 
 void perform_send_results(node_t *u) {
-	int i;
+	int i, j, z;
+	node_t *send_buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * range.rangeY);
 
-	for (i = 0; i < range.rangeX * range.rangeY; i++) {
-
+	z = 0;
+	for (i = 0; i < range.rangeX; i++) {
+		for (j = 0; j < range.rangeY; j++) {
+			send_buf[z] = u[relPos(i, j, range.rangeX)];
+			z += 1;
+		}
 	}
+	MPI_Send(send_buf, range.rangeX * range.rangeY, phase_type, 0, 0, MPI_COMM_WORLD);
+	free(send_buf);
 }
 
 /* Вычисляем границы прямоугольника для одного процесса */
@@ -265,10 +272,30 @@ int main(int argc, char **argv)
 
 		for (j = 1; j < count; j++) {
 			ranges[j] = get_ranges(j, count);
+			send_size = ranges[j].rangeX * ranges[j].rangeY;
+			send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
+			for (z = 0; z < send_size; z++) {
+				send_buf[z] = u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))];
+			}
+			MPI_Send(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD);
+			free(send_buf);
 		}
 	} else {
 		u = (node_t*)malloc(sizeof(node_t) * (range.rangeX + 2 * gs) * (range.rangeY + 2 * gs));
 		u1 = (node_t*)malloc(sizeof(node_t) * (range.rangeX + 2 * gs) * (range.rangeY + 2 * gs));
+
+		send_size = range.rangeX * range.rangeY;
+		send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
+		MPI_Recv(send_buf, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
+
+		z = 0;
+		for (i = 0; i < range.rangeX; i++) {
+			for (j = 0; j < range.rangeY; j++) {
+				u[relPos(i, j, range.rangeX)] = send_buf[z];
+				z += 1;
+			}
+		}
+		free(send_buf);
 	}
 
 	for (i = 0; i < steps; i++) {
