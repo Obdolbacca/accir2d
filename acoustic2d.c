@@ -268,6 +268,8 @@ void get_bounds_y(node_t *u, int rank, int count) {
 	if (prevYProcess(rank, count) != -1) {
 		printf("it's me recv, %d, prev y!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
+
+		printf("%p\n", (void*)buf);
 		MPI_Recv(buf, range.rangeX * gs, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
@@ -302,6 +304,7 @@ void send_bonds_y(node_t *u, int rank, int count) {
 		printf("it's me sent, %d, prev y!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
 		
+
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
 			for (j = 0; j < gs; j++) {
@@ -319,7 +322,7 @@ void send_bonds_y(node_t *u, int rank, int count) {
 		
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
-			for (j = range.rangeY - gs; j <= range.rangeY; j++) {
+			for (j = range.rangeY - gs; j < range.rangeY; j++) {
 				buf[z] = u[relPos(i, j, range.rangeX)];
 				z += 1;
 			}
