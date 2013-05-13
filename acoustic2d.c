@@ -214,7 +214,7 @@ void perform_send_results(node_t *u) {
 		}
 	}
 	MPI_Send(send_buf, range.rangeX * range.rangeY, phase_type, 0, 0, MPI_COMM_WORLD);
-	//free(send_buf);
+	free(send_buf);
 }
 
 /* Вычисляем границы прямоугольника для одного процесса */
@@ -233,8 +233,8 @@ void get_bounds_x(node_t *u, int rank, int count) {
 
 	if (prevXProcess(rank, count) != -1) {
 		printf("it's me, %d, prev x!\n", rank);
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
-		MPI_Recv(buf, range.rangeY, phase_type, prevXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
+		MPI_Recv(buf, range.rangeY * gs, phase_type, prevXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
 			for (i = -gs; i < 0; i++) {
@@ -242,13 +242,13 @@ void get_bounds_x(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		//free(buf);
+		free(buf);
 	}
 
 	if (nextXProcess(rank, count) != -1) {
 		printf("it's me, %d, next x!\n", rank);
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
-		MPI_Recv(buf, range.rangeY, phase_type, nextXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
+		MPI_Recv(buf, range.rangeY * gs, phase_type, nextXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
 			for (i = range.rangeX + 1; i <= range.rangeX + gs; i++) {
@@ -256,7 +256,7 @@ void get_bounds_x(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		//free(buf);
+		free(buf);
 	}
 	//printf("it's me, %d!\n", rank);
 }
@@ -267,8 +267,8 @@ void get_bounds_y(node_t *u, int rank, int count) {
 
 	if (prevYProcess(rank, count) != -1) {
 		printf("it's me recv, %d, prev y!\n", rank);
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
-		MPI_Recv(buf, range.rangeX, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
+		MPI_Recv(buf, range.rangeX * gs, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
 			for (j = -gs; j < 0; j++) {
@@ -276,13 +276,13 @@ void get_bounds_y(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		//free(buf);
+		free(buf);
 	}
 
 	if (nextYProcess(rank, count) != -1) {
 		printf("it's me, %d, next y!\n", rank);
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
-		MPI_Recv(buf, range.rangeX, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
+		MPI_Recv(buf, range.rangeX * gs, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
 			for (j = range.rangeY + 1; j <= range.rangeY + gs; j++) {
@@ -290,7 +290,7 @@ void get_bounds_y(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		//free(buf);
+		free(buf);
 	}
 
 }
@@ -300,7 +300,7 @@ void send_bonds_y(node_t *u, int rank, int count) {
 
 	if (prevYProcess(rank, count) != -1) {
 		printf("it's me sent, %d, prev y!\n", rank);
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
 		
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
@@ -309,13 +309,13 @@ void send_bonds_y(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		MPI_Send(buf, range.rangeX, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD);
-		//free(buf);
+		MPI_Send(buf, range.rangeX * gs, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD);
+		free(buf);
 	}
 
 	if (nextYProcess(rank, count) != -1) {
 		printf("it's me, %d, next y!\n", rank);
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * gs);
 		
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
@@ -324,8 +324,8 @@ void send_bonds_y(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		MPI_Send(buf, range.rangeX, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD);
-		//free(buf);
+		MPI_Send(buf, range.rangeX * gs, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD);
+		free(buf);
 	}
 }
 
@@ -344,8 +344,8 @@ void send_bonds_x(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		MPI_Send(buf, range.rangeY, phase_type, prevXProcess(rank, count), 2, MPI_COMM_WORLD);
-		//free(buf);
+		MPI_Send(buf, range.rangeY * gs, phase_type, prevXProcess(rank, count), 2, MPI_COMM_WORLD);
+		free(buf);
 	}
 
 	if (nextXProcess(rank, count) != -1) {
@@ -359,9 +359,9 @@ void send_bonds_x(node_t *u, int rank, int count) {
 				z += 1;
 			}
 		}
-		MPI_Send(buf, range.rangeY, phase_type, nextXProcess(rank, count), 2, MPI_COMM_WORLD);
+		MPI_Send(buf, range.rangeY * gs, phase_type, nextXProcess(rank, count), 2, MPI_COMM_WORLD);
 
-		//free(buf);
+		free(buf);
 	}
 }
 
@@ -445,7 +445,7 @@ int main(int argc, char **argv)
 					y = (absPosY(z, ranges[j].startY, ranges[j].rangeY)) - ranges[j].startY;
 					if ( (x >= 0 || prevXProcess(rank,count) == -1) && (y >= 0 || prevYProcess(rank, count) == -1) && (x < ranges[j].startX + ranges[j].rangeX || nextXProcess(rank, count == -1)) && (y < ranges[j].startY + ranges[j].rangeY || nextYProcess(rank, count) == -1)) u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
 				}
-				//free(send_buf);
+				free(send_buf);
 			}
 		}
 
@@ -473,7 +473,7 @@ int main(int argc, char **argv)
 	}
 	free(u);
 	free(u1);
-	if (!rank) free(ranges);
+	//if (!rank) free(ranges);
 	MPI_Finalize();
 	return 0;
 }
