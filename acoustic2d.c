@@ -282,7 +282,7 @@ void get_bounds_y(node_t *u, int rank, int count) {
 		MPI_Recv(buf, range.rangeX * gs, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (i = 0; i < range.rangeX; i++) {
-			for (j = range.rangeY + 1; j <= range.rangeY + gs; j++) {
+			for (j = range.rangeY; j < range.rangeY + gs; j++) {
 				u[relPos(i, j, range.rangeX)] = buf[z];
 				z += 1;
 			}
@@ -435,7 +435,9 @@ int main(int argc, char **argv)
 				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
 				for (z = 0; z < send_size; z++) {
-					x = (z / (ranges[j].rangeX + 2 * gs));
+					x = z - (int)((z / (ranges[j].rangeX + (2 * gs))) * (ranges[j].rangeX + (2 * gs)));
+					x = 0;
+					//printf("%d, %d\n", j, ranges[j].rangeX + 2 * gs);
 					//printf("%d, %d\n", j, x);
 					//x = (absPosX(z, ranges[j].startX, ranges[j].rangeX)) - ranges[j].startX; 
 					y = (absPosY(z, ranges[j].startY, ranges[j].rangeY)) - ranges[j].startY;
@@ -445,9 +447,7 @@ int main(int argc, char **argv)
 			}
 		}
 
-		if (i) {
-			get_bounds_x(u, rank, count);
-		}
+
 
 		/* Сохраняем посчитанные значения. */
 		if (i % savec == 0 && !rank) {
@@ -455,21 +455,25 @@ int main(int argc, char **argv)
 			write_to_vtk2d((double*)u, buf, save, N, o, h, gs, 3);
 		}
 
+		if (i) {
+			get_bounds_x(u, rank, count);
+		}
+
 		/* Обновляем значение. */
 		stepx(u, u1);
 		send_bonds_y(u1, rank, count);
 		get_bounds_y(u1, rank, count);
 		stepy(u1, u);
-		send_bonds_x(u, rank, count);
+		if (i != steps - 1) send_bonds_x(u, rank, count);
 
-		if (rank) perform_send_results(u);
+		if (rank && i != steps - 1) perform_send_results(u);
 		
 		/* Счетчик времени. */
 		t += dt;
 	}
 	free(u);
 	free(u1);
-	//if (!rank) free(ranges);
+	if (!rank) free(ranges);
 	MPI_Finalize();
 	return 0;
 }
