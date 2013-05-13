@@ -227,6 +227,34 @@ range_t get_ranges(int rank, int count) {
 	return result;
 }
 
+void get_bounds(rank, count) {
+	
+	if (prevYProcess(rank, count) != -1) {
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
+		MPI_Recv(buf, range.rangeX, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD);
+
+		free(buf);
+	}
+
+	if (prevXProcess(rank, count) != -1) {
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
+		MPI_Recv(buf, range.rangeY, phase_type, prevXProcess(rank, count), 1, MPI_COMM_WORLD);
+		free(buf);
+	}
+
+	if (nextYProcess(rank, count) != -1) {
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
+		MPI_Recv(buf, range.rangeX, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD);
+		free(buf);
+	}
+
+	if (nextXProcess(rank, count) != -1) {
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
+		MPI_Recv(buf, range.rangeY, phase_type, nextXProcess(rank, count), 1, MPI_COMM_WORLD);
+		free(buf);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	/* Шаг сетки. */
@@ -243,6 +271,7 @@ int main(int argc, char **argv)
 	MPI_Status st;
 	range_t *ranges;
 	int send_size;
+	int x, y;
 
 	MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -300,10 +329,16 @@ int main(int argc, char **argv)
 				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
 				for (z = 0; z < send_size; z++) {
-					u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
+					x = absPosX(z, ranges[j].startX, ranges[j].rangeX) - ranges[j].startX;
+					y = absPosY(z, ranges[j].startY, ranges[j].rangeY) - ranges[j].startY;
+					if ( (x >= 0 || prevXProcess(rank,count) == -1) && (y >= 0 || prevYProcess(rank, count) == -1) && (x < ranges[j].startX + ranges[j].rangeX || nextXProcess(rank, count == -1)) && (y < ranges[j].startY + ranges[j].rangeY || nextYProcess(rank, count) == -1)) u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
 				}
 				free(send_buf);
 			}
+		}
+
+		if (rank && i) {
+			get_bounds(rank, count);
 		}
 
 		/* Сохраняем посчитанные значения. */
