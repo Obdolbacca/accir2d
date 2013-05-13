@@ -45,8 +45,8 @@ static inline int processCount(count) { return sqrt(count); }
 
 static inline int nextXProcess(rank, count) { return ((processXIndex(rank, count) == processCount(count) - 1) ? -1 : (rank + 1));  }
 static inline int nextYProcess(rank, count) { return ((processYIndex(rank, count) == processCount(count) - 1) ? -1 : (rank + processCount(count)));  }
-static inline int prevXProcess(rank, count) { return ((processXIndex(rank, count)) ? -1 : (rank - 1)); }
-static inline int prevYProcess(rank, count) { return ((processYIndex(rank, count)) ? -1 : (rank - processCount(count))); }
+static inline int prevXProcess(rank, count) { return ((processXIndex(rank, count) != 0) ? (rank - 1) : -1); }
+static inline int prevYProcess(rank, count) { return ((processYIndex(rank, count) != 0) ? (rank - processCount(count)) : -1); }
 
 double minmax(double a, double b, double x)
 {
@@ -227,32 +227,72 @@ range_t get_ranges(int rank, int count) {
 	return result;
 }
 
-void get_bounds(rank, count) {
-	
-	if (prevYProcess(rank, count) != -1) {
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
-		MPI_Recv(buf, range.rangeX, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD);
-
-		free(buf);
-	}
+void get_bounds_x(node_t *u, int rank, int count) {
+	int i, j, z;
+	MPI_Status st;
 
 	if (prevXProcess(rank, count) != -1) {
+		printf("it's me, %d, prev x!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
-		MPI_Recv(buf, range.rangeY, phase_type, prevXProcess(rank, count), 1, MPI_COMM_WORLD);
-		free(buf);
-	}
-
-	if (nextYProcess(rank, count) != -1) {
-		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
-		MPI_Recv(buf, range.rangeX, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD);
+		MPI_Recv(buf, range.rangeY, phase_type, prevXProcess(rank, count), 1, MPI_COMM_WORLD, &st);
+		z = 0;
+		for (j = 0; j < range.rangeY; j++) {
+			for (i = -gs; i < 0; i++) {
+				u[relPos(i, j, range.rangeX)] = buf[z];
+				z += 1;
+			}
+		}
 		free(buf);
 	}
 
 	if (nextXProcess(rank, count) != -1) {
+		printf("it's me, %d, next x!\n", rank);
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY);
-		MPI_Recv(buf, range.rangeY, phase_type, nextXProcess(rank, count), 1, MPI_COMM_WORLD);
+		MPI_Recv(buf, range.rangeY, phase_type, nextXProcess(rank, count), 1, MPI_COMM_WORLD, &st);
+		z = 0;
+		for (j = 0; j < range.rangeY; j++) {
+			for (i = range.rangeX + 1; i <= range.rangeX + gs; i++) {
+				u[relPos(i, j, range.rangeX)] = buf[z];
+				z += 1;
+			}
+		}
 		free(buf);
 	}
+	//printf("it's me, %d!\n", rank);
+}
+
+void get_bounds_y(node_t *u, int rank, int count) {
+	int i, j, z;
+	MPI_Status st;
+
+	if (prevYProcess(rank, count) != -1) {
+		printf("it's me, %d, prev y!\n", rank);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
+		MPI_Recv(buf, range.rangeX, phase_type, prevYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
+		z = 0;
+		for (i = 0; i < range.rangeX; i++) {
+			for (j = -gs; j < 0; j++) {
+				u[relPos(i, j, range.rangeX)] = buf[z];
+				z += 1;
+			}
+		}
+		free(buf);
+	}
+
+	if (nextYProcess(rank, count) != -1) {
+		printf("it's me, %d, next y!\n", rank);
+		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeX);
+		MPI_Recv(buf, range.rangeX, phase_type, nextYProcess(rank, count), 1, MPI_COMM_WORLD, &st);
+		z = 0;
+		for (i = 0; i < range.rangeX; i++) {
+			for (j = range.rangeY + 1; j <= range.rangeY + gs; j++) {
+				u[relPos(i, j, range.rangeX)] = buf[z];
+				z += 1;
+			}
+		}
+		free(buf);
+	}
+
 }
 
 int main(int argc, char **argv)
@@ -329,16 +369,18 @@ int main(int argc, char **argv)
 				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
 				for (z = 0; z < send_size; z++) {
-					x = absPosX(z, ranges[j].startX, ranges[j].rangeX) - ranges[j].startX;
-					y = absPosY(z, ranges[j].startY, ranges[j].rangeY) - ranges[j].startY;
+					x = (z / (ranges[j].rangeX + 2 * gs));
+					//printf("%d, %d\n", j, x);
+					//x = (absPosX(z, ranges[j].startX, ranges[j].rangeX)) - ranges[j].startX; 
+					y = (absPosY(z, ranges[j].startY, ranges[j].rangeY)) - ranges[j].startY;
 					if ( (x >= 0 || prevXProcess(rank,count) == -1) && (y >= 0 || prevYProcess(rank, count) == -1) && (x < ranges[j].startX + ranges[j].rangeX || nextXProcess(rank, count == -1)) && (y < ranges[j].startY + ranges[j].rangeY || nextYProcess(rank, count) == -1)) u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
 				}
 				free(send_buf);
 			}
 		}
 
-		if (rank && i) {
-			get_bounds(rank, count);
+		if (i) {
+			get_bounds_x(u, rank, count);
 		}
 
 		/* Сохраняем посчитанные значения. */
@@ -349,6 +391,7 @@ int main(int argc, char **argv)
 
 		/* Обновляем значение. */
 		stepx(u, u1);
+		get_bounds_y(u1, rank, count);
 		stepy(u1, u);
 
 		if (rank) perform_send_results(u);
