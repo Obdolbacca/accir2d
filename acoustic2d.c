@@ -142,20 +142,20 @@ void stepx(node_t *u, node_t *u1)
 	int i, j;
 	double Z0 = Z(K, rho);
 	/* Преобразуем n -> w. */
-	for (j = -gs; j < N[1] + gs; j++) {
-		for (i = -gs; i < N[0] + gs; i++) {
-			node_t n = u[ind(i, j)];
-			Lx(Z0, &n, &u[ind(i, j)]);
+	for (j = -gs; j < range.rangeY + gs; j++) {
+		for (i = -gs; i < range.rangeX + gs; i++) {
+			node_t n = u[relPos(i, j, range.rangeX + 2 * gs)];
+			Lx(Z0, &n, &u[relPos(i, j, range.rangeX + 2 * gs)]);
 		}
 	}
-	for (j = 0; j < N[1]; j++) {
-		for (i = 0; i < N[0]; i++) {
+	for (j = 0; j < range.rangeY; j++) {
+		for (i = 0; i < range.rangeX; i++) {
 			node_t w;
-			w.p  = rusanov3(u[ind(i + 2, j)].p, u[ind(i + 1, j)].p, u[ind(i, j)].p, u[ind(i - 1, j)].p);
-			w.vx = u[ind(i, j)].vx;
-			w.vy = rusanov3(u[ind(i - 2, j)].vy, u[ind(i - 1, j)].vy, u[ind(i, j)].vy, u[ind(i + 1, j)].vy);
+			w.p  = rusanov3(u[relPos(i + 2, j, range.rangeX + 2 * gs)].p, u[relPos(i + 1, j, range.rangeX + 2 * gs)].p, u[relPos(i, j, range.rangeX + 2 * gs)].p, u[relPos(i - 1, j, range.rangeX + 2 * gs)].p);
+			w.vx = u[relPos(i, j, range.rangeX + 2 * gs)].vx;
+			w.vy = rusanov3(u[relPos(i - 2, j, range.rangeX + 2 * gs)].vy, u[relPos(i - 1, j, range.rangeX + 2 * gs)].vy, u[relPos(i, j, range.rangeX + 2 * gs)].vy, u[relPos(i + 1, j, range.rangeX + 2 * gs)].vy);
 			/* Обратное преобразование. */
-			Rx(Z0, &w, &u1[ind(i, j)]);
+			Rx(Z0, &w, &u1[relPos(i, j, range.rangeX + 2 * gs)]);
 		}
 	}
 }
@@ -165,20 +165,20 @@ void stepy(node_t *u, node_t *u1)
 	int i, j;
 	double Z0 = Z(K, rho);
 	/* Преобразуем n -> w. */
-	for (j = -gs; j < N[1] + gs; j++) {
-		for (i = -gs; i < N[0] + gs; i++) {
-			node_t n = u[ind(i, j)];
-			Ly(Z0, &n, &u[ind(i, j)]);
+	for (j = -gs; j < range.rangeY + gs; j++) {
+		for (i = -gs; i < range.rangeX + gs; i++) {
+			node_t n = u[relPos(i, j, range.rangeX + 2 * gs)];
+			Ly(Z0, &n, &u[relPos(i, j, range.rangeX + 2 * gs)]);
 		}
 	}
-	for (j = 0; j < N[1]; j++) {
-		for (i = 0; i < N[0]; i++) {
+	for (j = 0; j < range.rangeY; j++) {
+		for (i = 0; i < range.rangeX; i++) {
 			node_t w;
-			w.p = rusanov3(u[ind(i, j + 2)].p, u[ind(i, j + 1)].p, u[ind(i, j)].p, u[ind(i, j - 1)].p);
-			w.vx = u[ind(i, j)].vx;
-			w.vy = rusanov3(u[ind(i, j - 2)].vy, u[ind(i, j - 1)].vy, u[ind(i, j)].vy, u[ind(i, j + 1)].vy);
+			w.p = rusanov3(u[relPos(i, j + 2, range.rangeX + 2 * gs)].p, u[relPos(i, j + 1, range.rangeX + 2 * gs)].p, u[relPos(i, j, range.rangeX + 2 * gs)].p, u[relPos(i, j - 1, range.rangeX + 2 * gs)].p);
+			w.vx = u[relPos(i, j, range.rangeX + 2 * gs)].vx;
+			w.vy = rusanov3(u[relPos(i, j - 2, range.rangeX + 2 * gs)].vy, u[relPos(i, j - 1, range.rangeX + 2 * gs)].vy, u[relPos(i, j, range.rangeX + 2 * gs)].vy, u[relPos(i, j + 1, range.rangeX + 2 * gs)].vy);
 			/* Обратное преобразование. */
-			Ry(Z0, &w, &u1[ind(i, j)]);
+			Ry(Z0, &w, &u1[relPos(i, j, range.rangeX + 2 * gs)]);
 		}
 	}
 }
@@ -270,7 +270,7 @@ int main(int argc, char **argv)
 
 		ranges[0] = range;
 
-		/* Раздвем куски процессам */
+		/* Раздаем куски процессам */
 		for (j = 1; j < count; j++) {
 			ranges[j] = get_ranges(j, count);
 			send_size = (ranges[j].rangeX + (2 * gs)) * (ranges[j].rangeY + (2 * gs));
@@ -286,18 +286,9 @@ int main(int argc, char **argv)
 		u1 = (node_t*)malloc(sizeof(node_t) * (range.rangeX + 2 * gs) * (range.rangeY + 2 * gs));
 
 		/* Принимаем начальные куски */
-		send_size = range.rangeX * range.rangeY;
-		send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
-		MPI_Recv(send_buf, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
+		send_size = (range.rangeX + (2 * gs)) * (range.rangeY + (2 * gs));
 
-		z = 0;
-		for (i = -gs; i < range.rangeX + gs; i++) {
-			for (j = -gs; j < range.rangeY + gs; j++) {
-				u[relPos(i, j, range.rangeX + (2 * gs))] = send_buf[z];
-				z += 1;
-			}
-		}
-		free(send_buf);
+		MPI_Recv(u, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
 	}
 
 	for (i = 0; i < steps; i++) {
