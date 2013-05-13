@@ -248,8 +248,8 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &count);
 
-	if (!((count == 4) || (count == 16))) {
-		if (!rank) printf("Process count correct must be 4 or 16. Current is %d\n", count);
+	if (!((count == 4) || (count == 16) || (count == 64))) {
+		if (!rank) printf("Process count correct must be 4 or 16 or 64. Current is %d\n", count);
 		MPI_Finalize();
 		exit(0);
 	}
@@ -270,12 +270,13 @@ int main(int argc, char **argv)
 
 		ranges[0] = range;
 
+		/* Раздвем куски процессам */
 		for (j = 1; j < count; j++) {
 			ranges[j] = get_ranges(j, count);
-			send_size = ranges[j].rangeX * ranges[j].rangeY;
+			send_size = (ranges[j].rangeX + (2 * gs)) * (ranges[j].rangeY + (2 * gs));
 			send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 			for (z = 0; z < send_size; z++) {
-				send_buf[z] = u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))];
+				send_buf[z] = u[ind(absPosX(z, ranges[j].startX - gs, ranges[j].rangeX + (2 * gs)), absPosY(z, ranges[j].startY - gs, ranges[j].rangeY + (2 * gs)))];
 			}
 			MPI_Send(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD);
 			free(send_buf);
@@ -289,9 +290,9 @@ int main(int argc, char **argv)
 		MPI_Recv(send_buf, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
 
 		z = 0;
-		for (i = 0; i < range.rangeX; i++) {
-			for (j = 0; j < range.rangeY; j++) {
-				u[relPos(i, j, range.rangeX)] = send_buf[z];
+		for (i = -gs; i < range.rangeX + gs; i++) {
+			for (j = -gs; j < range.rangeY + gs; j++) {
+				u[relPos(i, j, range.rangeX + (2 * gs))] = send_buf[z];
 				z += 1;
 			}
 		}
