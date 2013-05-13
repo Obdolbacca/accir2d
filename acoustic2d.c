@@ -14,11 +14,18 @@
 #define gs 2
 
 #define ind(i, j) ((i + gs) + (j + gs) * N[0])
+#define ind2(i, j) ( i + j * (N[0] + 2*gs))
+#define ind3(i, j) ((i + gs) + (j + gs) * (N[0] + 2*gs))
 
 #define relPos(i, j, x_range) ((i + gs) + ((j + gs) * (x_range + 2 * gs)))
 
+
 #define absPosX(z, x_start, x_range) ((z % (x_range + 2 * gs)) + x_start - gs)
 #define absPosY(z, y_start, y_range) ((z / (y_range + 2 * gs)) + y_start - gs)
+
+#define absAbsPosX(z, x_start, x_range) ((z % (x_range)) + x_start)
+#define absAbsPosY(z, y_start, y_range) ((z / (y_range)) + y_start)
+
 
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
@@ -137,48 +144,76 @@ double rusanov3(const double u_2, const double u_1, const double u0, const doubl
 	return minmax(u0, u_1, v);
 }
 
-void stepx(node_t *u, node_t *u1)
+void stepx(node_t *u, node_t *u1, int rank)
 {
 	int i, j;
+	node_t n, w;
 	double Z0 = Z(K, rho);
 	/* Преобразуем n -> w. */
 	for (j = -gs; j < range.rangeY + gs; j++) {
 		for (i = -gs; i < range.rangeX + gs; i++) {
-			node_t n = u[relPos(i, j, range.rangeX)];
-			Lx(Z0, &n, &u[relPos(i, j, range.rangeX)]);
+			if (rank) {
+				n = u[relPos(i, j, range.rangeX)];
+				Lx(Z0, &n, &u[relPos(i, j, range.rangeX)]);
+			} else {
+				n = u[ind(i, j)];
+				Lx(Z0, &n, &u[ind(i, j)]);
+			}
 		}
 	}
 	for (j = 0; j < range.rangeY; j++) {
 		for (i = 0; i < range.rangeX; i++) {
-			node_t w;
-			w.p  = rusanov3(u[relPos(i + 2, j, range.rangeX)].p, u[relPos(i + 1, j, range.rangeX)].p, u[relPos(i, j, range.rangeX)].p, u[relPos(i - 1, j, range.rangeX)].p);
-			w.vx = u[relPos(i, j, range.rangeX)].vx;
-			w.vy = rusanov3(u[relPos(i - 2, j, range.rangeX)].vy, u[relPos(i - 1, j, range.rangeX)].vy, u[relPos(i, j, range.rangeX)].vy, u[relPos(i + 1, j, range.rangeX)].vy);
-			/* Обратное преобразование. */
-			Rx(Z0, &w, &u1[relPos(i, j, range.rangeX)]);
+			if (rank) {
+						w.p  = rusanov3(u[relPos(i + 2, j, range.rangeX)].p, u[relPos(i + 1, j, range.rangeX)].p, u[relPos(i, j, range.rangeX)].p, u[relPos(i - 1, j, range.rangeX)].p);
+						w.vx = u[relPos(i, j, range.rangeX)].vx;
+						w.vy = rusanov3(u[relPos(i - 2, j, range.rangeX)].vy, u[relPos(i - 1, j, range.rangeX)].vy, u[relPos(i, j, range.rangeX)].vy, u[relPos(i + 1, j, range.rangeX)].vy);
+						/* Обратное преобразование. */
+						Rx(Z0, &w, &u1[relPos(i, j, range.rangeX)]);
+					} else {
+						w.p  = rusanov3(u[ind(i + 2, j)].p, u[ind(i + 1, j)].p, u[ind(i, j)].p, u[ind(i - 1, j)].p);
+						w.vx = u[ind(i, j)].vx;
+						w.vy = rusanov3(u[ind(i - 2, j)].vy, u[ind(i - 1, j)].vy, u[ind(i, j)].vy, u[ind(i + 1, j)].vy);
+						/* Обратное преобразование. */
+						Rx(Z0, &w, &u1[ind(i, j)]);
+					}
 		}
 	}
 }
 
-void stepy(node_t *u, node_t *u1)
+void stepy(node_t *u, node_t *u1, int rank)
 {
 	int i, j;
+	node_t n, w;
 	double Z0 = Z(K, rho);
 	/* Преобразуем n -> w. */
 	for (j = -gs; j < range.rangeY + gs; j++) {
 		for (i = -gs; i < range.rangeX + gs; i++) {
-			node_t n = u[relPos(i, j, range.rangeX)];
-			Ly(Z0, &n, &u[relPos(i, j, range.rangeX)]);
+			if (rank) {
+				n = u[relPos(i, j, range.rangeX)];
+				Ly(Z0, &n, &u[relPos(i, j, range.rangeX)]);
+			} else {
+				n = u[ind(i,j)];
+				Ly(Z0, &n, &u[ind(i, j)]);
+			}
+
+			
 		}
 	}
 	for (j = 0; j < range.rangeY; j++) {
 		for (i = 0; i < range.rangeX; i++) {
-			node_t w;
-			w.p = rusanov3(u[relPos(i, j + 2, range.rangeX)].p, u[relPos(i, j + 1, range.rangeX)].p, u[relPos(i, j, range.rangeX)].p, u[relPos(i, j - 1, range.rangeX)].p);
-			w.vx = u[relPos(i, j, range.rangeX)].vx;
-			w.vy = rusanov3(u[relPos(i, j - 2, range.rangeX)].vy, u[relPos(i, j - 1, range.rangeX)].vy, u[relPos(i, j, range.rangeX)].vy, u[relPos(i, j + 1, range.rangeX)].vy);
-			/* Обратное преобразование. */
-			Ry(Z0, &w, &u1[relPos(i, j, range.rangeX)]);
+			if (rank){ 
+						w.p = rusanov3(u[relPos(i, j + 2, range.rangeX)].p, u[relPos(i, j + 1, range.rangeX)].p, u[relPos(i, j, range.rangeX)].p, u[relPos(i, j - 1, range.rangeX)].p);
+						w.vx = u[relPos(i, j, range.rangeX)].vx;
+						w.vy = rusanov3(u[relPos(i, j - 2, range.rangeX)].vy, u[relPos(i, j - 1, range.rangeX)].vy, u[relPos(i, j, range.rangeX)].vy, u[relPos(i, j + 1, range.rangeX)].vy);
+						/* Обратное преобразование. */
+						Ry(Z0, &w, &u1[relPos(i, j, range.rangeX)]);
+					} else {
+						w.p = rusanov3(u[ind(i, j + 2)].p, u[ind(i, j + 1)].p, u[ind(i, j)].p, u[ind(i, j - 1)].p);
+						w.vx = u[ind(i, j)].vx;
+						w.vy = rusanov3(u[ind(i, j - 2)].vy, u[ind(i, j - 1)].vy, u[ind(i, j)].vy, u[ind(i, j + 1)].vy);
+						Ry(Z0, &w, &u1[ind(i, j)]);
+					}
+			
 		}
 	}
 }
@@ -194,6 +229,7 @@ void init(node_t *u, const double h[2], const double o[2])
 			double d = (x[0] - c[0]) * (x[0] - c[0]) + (x[1] - c[1]) * (x[1] - c[1]);
 			if (sqrt(d) < R) {
 				u[ind(i, j)].p = 1.0;
+				//u[ind(i, j)].p = 0.0;
 			} else {
 				u[ind(i, j)].p = 0.0;
 			}
@@ -207,8 +243,8 @@ void perform_send_results(node_t *u) {
 	node_t *send_buf = (node_t*)malloc(sizeof(node_t) * range.rangeX * range.rangeY);
 
 	z = 0;
-	for (i = 0; i < range.rangeX; i++) {
-		for (j = 0; j < range.rangeY; j++) {
+	for (j = 0; j < range.rangeY; j++) {
+		for (i = 0; i < range.rangeX; i++) {
 			send_buf[z] = u[relPos(i, j, range.rangeX)];
 			z += 1;
 		}
@@ -249,7 +285,7 @@ void get_bounds_x(node_t *u, int rank, int count) {
 		MPI_Recv(buf, (range.rangeY * gs), phase_type, nextXProcess(rank, count), 2, MPI_COMM_WORLD, &st);
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
-			for (i = range.rangeX + 1; i <= range.rangeX + gs; i++) {
+			for (i = range.rangeX; i < range.rangeX + gs; i++) {
 				u[relPos(i, j, range.rangeX)] = buf[z];
 				z += 1;
 			}
@@ -329,7 +365,7 @@ void send_bonds_x(node_t *u, int rank, int count) {
 	int i, j, z;
 	MPI_Status st;
 
-	if (prevXProcess(rank, count) != -1) {
+	if (prevXProcess(rank, count) != -1 && prevXProcess(rank, count)) {
 
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
 
@@ -344,7 +380,7 @@ void send_bonds_x(node_t *u, int rank, int count) {
 		free(buf);
 	}
 
-	if (nextXProcess(rank, count) != -1) {
+	if (nextXProcess(rank, count) != -1 && nextXProcess(rank, count)) {
 
 		node_t *buf = (node_t*)malloc(sizeof(node_t) * range.rangeY * gs);
 
@@ -370,7 +406,7 @@ int main(int argc, char **argv)
 	int steps = (int)(T / dt);
 	node_t *u, *u1;
 	node_t *send_buf;
-	int i, j, z, rank, count;
+	int i, j, z, rank, count, k;
 	char buf[256];
 	const char *save[3] = {"p", "vx", "vy"};
 	double t = 0.0;
@@ -388,6 +424,8 @@ int main(int argc, char **argv)
 		MPI_Finalize();
 		exit(0);
 	}
+
+	printf("%d %d %d\n", ind3(absAbsPosX(137, 50, 50), absAbsPosY(137, 50, 50)), absPosY(137,50,50), ind2(0,0));
 
 	printf("%lf\n", dt);
 
@@ -411,7 +449,13 @@ int main(int argc, char **argv)
 			send_size = (ranges[j].rangeX + (2 * gs)) * (ranges[j].rangeY + (2 * gs));
 			send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 			for (z = 0; z < send_size; z++) {
+				/*node_t n;
+				n.p = 1.0;
+				if(j == 3) n.p = 0.0;
+				n.vx = 0.0;
+				n.vy = 0.0;*/
 				send_buf[z] = u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))];
+				//u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = n;
 			}
 			MPI_Send(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD);
 			free(send_buf);
@@ -424,6 +468,15 @@ int main(int argc, char **argv)
 		send_size = (range.rangeX + (2 * gs)) * (range.rangeY + (2 * gs));
 
 		MPI_Recv(u, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
+		/*if (rank == 3) {
+			for (k = 0; k < send_size; k ++) {
+				u[k].p = 0.0;
+			}
+		} else {
+			for (k = 0; k < send_size; k ++) {
+				u[k].p = 1.0;
+			}
+		}*/
 	}
 
 	for (i = 0; i < steps; i++) {
@@ -435,13 +488,7 @@ int main(int argc, char **argv)
 				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
 				for (z = 0; z < send_size; z++) {
-					x = z - (int)((z / (ranges[j].rangeX + (2 * gs))) * (ranges[j].rangeX + (2 * gs)));
-					x = 0;
-					//printf("%d, %d\n", j, ranges[j].rangeX + 2 * gs);
-					//printf("%d, %d\n", j, x);
-					//x = (absPosX(z, ranges[j].startX, ranges[j].rangeX)) - ranges[j].startX; 
-					y = (absPosY(z, ranges[j].startY, ranges[j].rangeY)) - ranges[j].startY;
-					if ( (x >= 0 || prevXProcess(rank,count) == -1) && (y >= 0 || prevYProcess(rank, count) == -1) && (x < ranges[j].startX + ranges[j].rangeX || nextXProcess(rank, count == -1)) && (y < ranges[j].startY + ranges[j].rangeY || nextYProcess(rank, count) == -1)) u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
+					u[ind(absAbsPosX(z, ranges[j].startX, ranges[j].rangeX), absAbsPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
 				}
 				free(send_buf);
 			}
@@ -455,15 +502,15 @@ int main(int argc, char **argv)
 			write_to_vtk2d((double*)u, buf, save, N, o, h, gs, 3);
 		}
 
-		if (i) {
+		if (i && rank) {
 			get_bounds_x(u, rank, count);
 		}
 
 		/* Обновляем значение. */
-		stepx(u, u1);
+		stepx(u, u1, rank);
 		send_bonds_y(u1, rank, count);
 		get_bounds_y(u1, rank, count);
-		stepy(u1, u);
+		stepy(u1, u, rank);
 		if (i != steps - 1) send_bonds_x(u, rank, count);
 
 		if (rank && i != steps - 1) perform_send_results(u);
