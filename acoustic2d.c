@@ -17,8 +17,8 @@
 
 #define relPos(i, j, x_range) ((i + gs) + ((j + gs) * x_range))
 
-#define absPosX(z, x_start, x_range) ((z % x_range) + x_start)
-#define absPosY(z, y_start, y_range) ((z / y_range) + y_start)
+#define absPosX(z, x_start, x_range) ((z % x_range) + x_start - gs)
+#define absPosY(z, y_start, y_range) ((z / y_range) + y_start - gs)
 
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
@@ -269,7 +269,7 @@ int main(int argc, char **argv)
 		ranges = (range_t*)malloc(sizeof(range_t) * count);
 
 		ranges[0] = range;
-
+		printf("%lf %lf %lf\n", u[ind(-gs, -gs)].p, u[ind(55, 55)].vx, u[ind(55, 55)].vy);
 		/* Раздаем куски процессам */
 		for (j = 1; j < count; j++) {
 			ranges[j] = get_ranges(j, count);
@@ -289,6 +289,7 @@ int main(int argc, char **argv)
 		send_size = (range.rangeX + (2 * gs)) * (range.rangeY + (2 * gs));
 
 		MPI_Recv(u, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
+		printf("%d %lf %lf %lf\n", rank, u[ind(-gs, -gs)].p, u[ind(-gs, -gs)].vx, u[ind(-gs, -gs)].vy);
 	}
 
 	for (i = 0; i < steps; i++) {
