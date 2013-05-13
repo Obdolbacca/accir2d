@@ -43,6 +43,11 @@ static inline int processXIndex(rank, count) { return (rank % (int)sqrt(count));
 static inline int processYIndex(rank, count) { return (rank / (int)sqrt(count)); }
 static inline int processCount(count) { return sqrt(count); }
 
+static inline int nextXProcess(rank, count) { return ((processXIndex(rank, count) == processCount(count) - 1) ? -1 : (rank + 1));  }
+static inline int nextYProcess(rank, count) { return ((processYIndex(rank, count) == processCount(count) - 1) ? -1 : (rank + processCount(count)));  }
+static inline int prevXProcess(rank, count) { return ((processXIndex(rank, count)) ? -1 : (rank - 1)); }
+static inline int prevYProcess(rank, count) { return ((processYIndex(rank, count)) ? -1 : (rank - processCount(count))); }
+
 double minmax(double a, double b, double x)
 {
 	double minx = min(a, b);
@@ -208,10 +213,10 @@ void perform_send_results(node_t *u) {
 /* Вычисляем границы прямоугольника для одного процесса */
 range_t get_ranges(int rank, int count) {
 	range_t result;
-	result.startX = result.rangeX * processXIndex(rank, count);
-	result.startY = result.rangeY * processYIndex(rank, count);
 	result.rangeX = N[0] / (int)sqrt(count);
 	result.rangeY = N[1] / (int)sqrt(count);
+	result.startX = result.rangeX * processXIndex(rank, count);
+	result.startY = result.rangeY * processYIndex(rank, count);
 	return result;
 }
 
