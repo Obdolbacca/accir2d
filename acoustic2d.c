@@ -285,6 +285,7 @@ int main(int argc, char **argv)
 		u = (node_t*)malloc(sizeof(node_t) * (range.rangeX + 2 * gs) * (range.rangeY + 2 * gs));
 		u1 = (node_t*)malloc(sizeof(node_t) * (range.rangeX + 2 * gs) * (range.rangeY + 2 * gs));
 
+		/* Принимаем начальные куски */
 		send_size = range.rangeX * range.rangeY;
 		send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 		MPI_Recv(send_buf, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
