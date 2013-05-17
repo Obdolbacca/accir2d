@@ -201,8 +201,8 @@ void init(node_t *u, const double h[2], const double o[2])
 			double x[2] = {h[0] * i + o[0], x[1] = h[1] * j + o[1]};
 			double d = (x[0] - c[0]) * (x[0] - c[0]) + (x[1] - c[1]) * (x[1] - c[1]);
 			if (sqrt(d) < R) {
-				u[ind(i, j)].p = 1.0;
-				//u[ind(i, j)].p = 0.0;
+				//u[ind(i, j)].p = 1.0;
+				u[ind(i, j)].p = 0.0;
 			} else {
 				u[ind(i, j)].p = 0.0;
 			}
@@ -411,6 +411,8 @@ int main(int argc, char **argv)
 	int send_size;
 	int x, y;
 
+	int infinity = 1;
+
 	MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &count);
@@ -424,14 +426,20 @@ int main(int argc, char **argv)
 
 	range = get_ranges(rank, count);
 
-	printf("rank: %d, prev X: %d, next X: %d, prev Y: %d, next Y: %d\n", rank, prevXProcess(rank,count),
-				nextXProcess(rank,count), prevYProcess(rank,count), nextYProcess(rank,count));
+	if (!rank) infinity = 0;
+
+	/*while (!infinity) {
+		infinity = 0 | infinity;
+	}*/
+
+	//printf("rank: %d, prev X: %d, next X: %d, prev Y: %d, next Y: %d\n", rank, prevXProcess(rank,count),
+				//nextXProcess(rank,count), prevYProcess(rank,count), nextYProcess(rank,count));
 
 	if (nextXProcess(rank,count) == -1 || prevYProcess(rank,count) == -1) printf("rank: %d, %d, %d\n", rank, range.rangeX, range.startY);
 	
 	if (!rank) {
 		u =  (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
-		u1 = (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
+		//u1 = (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
 		init(u, h, o);
 
 		ranges = (range_t*)malloc(sizeof(range_t) * count);
@@ -472,7 +480,7 @@ int main(int argc, char **argv)
 		send_size = (range.rangeX + (2 * gs)) * (range.rangeY + (2 * gs));
 
 		MPI_Recv(u, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
-		/*if (rank == 3) {
+		if (processXIndex(rank,count) == m - 1) {
 			for (k = 0; k < send_size; k ++) {
 				u[k].p = 0.0;
 			}
@@ -480,7 +488,7 @@ int main(int argc, char **argv)
 			for (k = 0; k < send_size; k ++) {
 				u[k].p = 1.0;
 			}
-		}*/
+		}
 	}
 
 	for (i = 0; i < steps; i++) {
@@ -520,16 +528,16 @@ int main(int argc, char **argv)
 
 		/* Обновляем значение. */
 		if (rank) {
-				stepx(u, u1);
+				//stepx(u, u1);
 				send_bounds_y(u1, rank, count);
 				get_bounds_y(u1, rank, count);
-				stepy(u1, u);
+				//stepy(u1, u);
 				if (i != steps - 1) send_bounds_x(u, rank, count);
 			} else {
-				stepx(v, v1);
+				//stepx(v, v1);
 				send_bounds_y(v1, rank, count);
 				get_bounds_y(v1, rank, count);
-				stepy(v1, v);
+				//stepy(v1, v);
 				if (i != steps - 1) send_bounds_x(v, rank, count);
 			}
 		
@@ -539,8 +547,9 @@ int main(int argc, char **argv)
 		/* Счетчик времени. */
 		t += dt;
 	}
+	printf("%d was here!\n", rank);
 	free(u);
-	free(u1);
+	if (rank) free(u1);
 	if (!rank) {
 		free(v);
 		free(v1);
