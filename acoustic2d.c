@@ -27,11 +27,13 @@
 #define absAbsPosY(z, y_start, y_range) ((z / (y_range)) + y_start)
 
 
+
 double c = 0.4; /* Число Куранта. */
 double T = 30.0; /* До какого момента времени считаем. */
 double K = 2.0; /* Модуль упругости. */
 double rho = 1.0; /* Плотность среды. */
 int savec = 10; /* Как часто сохранять. */
+int m, n; /* Разбиение на квадраты. */
 
 /* Число точек расчетной области по осям. */
 int N[2] = {100, 100};
@@ -46,14 +48,13 @@ MPI_Datatype phase_type;
 static inline double max(double a, double b) { return a > b ? a : b; }
 static inline double min(double a, double b) { return a > b ? b : a; }
 
-static inline int processXIndex(rank, count) { return (rank % (int)sqrt(count)); }
-static inline int processYIndex(rank, count) { return (rank / (int)sqrt(count)); }
-static inline int processCount(count) { return sqrt(count); }
+static inline int processXIndex(rank, count) { return (rank % m); }
+static inline int processYIndex(rank, count) { return (rank / m); }
 
-static inline int nextXProcess(rank, count) { return ((processXIndex(rank, count) == processCount(count) - 1) ? -1 : (rank + 1));  }
-static inline int nextYProcess(rank, count) { return ((processYIndex(rank, count) == processCount(count) - 1) ? -1 : (rank + processCount(count)));  }
+static inline int nextXProcess(rank, count) { return ((processXIndex(rank, count) == m - 1) ? -1 : (rank + 1));  }
+static inline int nextYProcess(rank, count) { return ((processYIndex(rank, count) == n - 1) ? -1 : (rank + m));  }
 static inline int prevXProcess(rank, count) { return ((processXIndex(rank, count) != 0) ? (rank - 1) : -1); }
-static inline int prevYProcess(rank, count) { return ((processYIndex(rank, count) != 0) ? (rank - processCount(count)) : -1); }
+static inline int prevYProcess(rank, count) { return ((processYIndex(rank, count) != 0) ? (rank - m) : -1); }
 
 double minmax(double a, double b, double x)
 {
@@ -228,11 +229,33 @@ void perform_send_results(node_t *u) {
 /* Вычисляем границы прямоугольника для одного процесса */
 range_t get_ranges(int rank, int count) {
 	range_t result;
-	result.rangeX = N[0] / (int)sqrt(count);
-	result.rangeY = N[1] / (int)sqrt(count);
+	result.rangeX = N[0] / m;
+	result.rangeY = N[1] / n;
 	result.startX = result.rangeX * processXIndex(rank, count);
 	result.startY = result.rangeY * processYIndex(rank, count);
+	if (nextXProcess(rank, count) == -1) result.rangeX = N[0] - result.startX;
+	if (nextYProcess(rank, count) == -1) result.rangeY = N[1] - result.startY;
 	return result;
+}
+
+void get_dimensions(int count, int *m, int *n) {
+	int done = 0;
+	int tmpN, tmpM;
+	int candidateN, candidateM;
+	tmpM = 1;
+	tmpN = count;
+	candidateM = 1;
+	while (!done) {
+		if (count % candidateM == 0) {
+			candidateN = count / candidateM;
+			tmpM = candidateM;
+			tmpN = candidateN;
+		}
+		candidateM += 1;
+		if (candidateM >= tmpN) done = 1;
+	}
+	*m = tmpM;
+	*n = tmpN;
 }
 
 void get_bounds_x(node_t *u, int rank, int count) {
@@ -245,6 +268,7 @@ void get_bounds_x(node_t *u, int rank, int count) {
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
 			for (i = -gs; i < 0; i++) {
+				if (j == 0 && i == -gs && rank == 5) printf("%d %d\n", absPosX(z, range.startX, range.rangeX), range.rangeX);
 				u[relPos(i, j, range.rangeX)] = buf[z];
 				z += 1;
 			}
@@ -300,7 +324,7 @@ void get_bounds_y(node_t *u, int rank, int count) {
 
 }
 
-void send_bonds_y(node_t *u, int rank, int count) {
+void send_bounds_y(node_t *u, int rank, int count) {
 	int i, j, z;
 
 	if (prevYProcess(rank, count) != -1) {
@@ -333,7 +357,7 @@ void send_bonds_y(node_t *u, int rank, int count) {
 	}
 }
 
-void send_bonds_x(node_t *u, int rank, int count) {
+void send_bounds_x(node_t *u, int rank, int count) {
 	int i, j, z;
 	MPI_Status st;
 
@@ -391,11 +415,7 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &count);
 
-	if (!((count == 4) || (count == 16) || (count == 64))) {
-		if (!rank) printf("Process count correct must be 4 or 16 or 64. Current is %d\n", count);
-		MPI_Finalize();
-		exit(0);
-	}
+	get_dimensions(count, &m, &n);
 
 	printf("%lf\n", dt);
 
@@ -403,6 +423,11 @@ int main(int argc, char **argv)
 	MPI_Type_commit(&phase_type);
 
 	range = get_ranges(rank, count);
+
+	printf("rank: %d, prev X: %d, next X: %d, prev Y: %d, next Y: %d\n", rank, prevXProcess(rank,count),
+				nextXProcess(rank,count), prevYProcess(rank,count), nextYProcess(rank,count));
+
+	if (nextXProcess(rank,count) == -1 || prevYProcess(rank,count) == -1) printf("rank: %d, %d, %d\n", rank, range.rangeX, range.startY);
 	
 	if (!rank) {
 		u =  (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
@@ -424,6 +449,7 @@ int main(int argc, char **argv)
 		/* Раздаем куски процессам */
 		for (j = 1; j < count; j++) {
 			ranges[j] = get_ranges(j, count);
+			//printf("rank: %d, %d %d %d %d\n", j, ranges[j].startX, ranges[j].startY, ranges[j].rangeX, ranges[j].rangeY);
 			send_size = (ranges[j].rangeX + (2 * gs)) * (ranges[j].rangeY + (2 * gs));
 			send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 			for (z = 0; z < send_size; z++) {
@@ -480,7 +506,6 @@ int main(int argc, char **argv)
 		}
 
 
-
 		/* Сохраняем посчитанные значения. */
 		if (i % savec == 0 && !rank) {
 			sprintf(buf, "data_%06d.vtk", i);
@@ -496,16 +521,16 @@ int main(int argc, char **argv)
 		/* Обновляем значение. */
 		if (rank) {
 				stepx(u, u1);
-				send_bonds_y(u1, rank, count);
+				send_bounds_y(u1, rank, count);
 				get_bounds_y(u1, rank, count);
 				stepy(u1, u);
-				if (i != steps - 1) send_bonds_x(u, rank, count);
+				if (i != steps - 1) send_bounds_x(u, rank, count);
 			} else {
 				stepx(v, v1);
-				send_bonds_y(v1, rank, count);
+				send_bounds_y(v1, rank, count);
 				get_bounds_y(v1, rank, count);
 				stepy(v1, v);
-				if (i != steps - 1) send_bonds_x(v, rank, count);
+				if (i != steps - 1) send_bounds_x(v, rank, count);
 			}
 		
 
