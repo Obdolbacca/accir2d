@@ -14,14 +14,14 @@
 #define gs 2
 
 #define ind(i, j) ((i + gs) + (j + gs) * N[0])
-#define ind2(i, j) ( i + j * (N[0] + 2*gs))
+#define ind2(i, j) ( i + j * (N[0] + 2 * gs))
 #define ind3(i, j) ((i + gs) + (j + gs) * (N[0] + 2*gs))
 
 #define relPos(i, j, x_range) ((i + gs) + ((j + gs) * (x_range + 2 * gs)))
 
 
 #define absPosX(z, x_start, x_range) ((z % (x_range + 2 * gs)) + x_start - gs)
-#define absPosY(z, y_start, y_range) ((z / (y_range + 2 * gs)) + y_start - gs)
+#define absPosY(z, y_start, x_range) ((z / (x_range + 2 * gs)) + y_start - gs)
 
 #define absAbsPosX(z, x_start, x_range) ((z % (x_range)) + x_start)
 #define absAbsPosY(z, y_start, y_range) ((z / (y_range)) + y_start)
@@ -201,8 +201,8 @@ void init(node_t *u, const double h[2], const double o[2])
 			double x[2] = {h[0] * i + o[0], x[1] = h[1] * j + o[1]};
 			double d = (x[0] - c[0]) * (x[0] - c[0]) + (x[1] - c[1]) * (x[1] - c[1]);
 			if (sqrt(d) < R) {
-				//u[ind(i, j)].p = 1.0;
-				u[ind(i, j)].p = 0.0;
+				u[ind(i, j)].p = 1.0;
+				//u[ind(i, j)].p = 0.0;
 			} else {
 				u[ind(i, j)].p = 0.0;
 			}
@@ -231,9 +231,9 @@ range_t get_ranges(int rank, int count) {
 	range_t result;
 	result.rangeX = N[0] / m;
 	result.rangeY = N[1] / n;
-	result.startX = result.rangeX * processXIndex(rank, count);
+	result.startX = result.rangeX * processXIndex(rank, count) + gs;
 	result.startY = result.rangeY * processYIndex(rank, count);
-	if (nextXProcess(rank, count) == -1) result.rangeX = N[0] - result.startX;
+	if (nextXProcess(rank, count) == -1) result.rangeX = N[0] - gs - result.startX;
 	if (nextYProcess(rank, count) == -1) result.rangeY = N[1] - result.startY;
 	return result;
 }
@@ -268,7 +268,7 @@ void get_bounds_x(node_t *u, int rank, int count) {
 		z = 0;
 		for (j = 0; j < range.rangeY; j++) {
 			for (i = -gs; i < 0; i++) {
-				if (j == 0 && i == -gs && rank == 5) printf("%d %d\n", absPosX(z, range.startX, range.rangeX), range.rangeX);
+//				if (j == 0 && i == -gs && rank == 5) printf("%d %d\n", absPosX(z, range.startX, range.rangeX), range.rangeX);
 				u[relPos(i, j, range.rangeX)] = buf[z];
 				z += 1;
 			}
@@ -411,8 +411,6 @@ int main(int argc, char **argv)
 	int send_size;
 	int x, y;
 
-	int infinity = 1;
-
 	MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &count);
@@ -426,18 +424,8 @@ int main(int argc, char **argv)
 
 	range = get_ranges(rank, count);
 
-	if (!rank) infinity = 0;
-
-	/*while (!infinity) {
-		infinity = 0 | infinity;
-	}*/
-
-	//printf("rank: %d, prev X: %d, next X: %d, prev Y: %d, next Y: %d\n", rank, prevXProcess(rank,count),
-				//nextXProcess(rank,count), prevYProcess(rank,count), nextYProcess(rank,count));
-
-	if (nextXProcess(rank,count) == -1 || prevYProcess(rank,count) == -1) printf("rank: %d, %d, %d\n", rank, range.rangeX, range.startY);
-	
 	if (!rank) {
+		//printf("%d %d\n", m, n);
 		u =  (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
 		//u1 = (node_t*)malloc(sizeof(node_t) * (N[0] + 2 * gs) * (N[1] + 2 * gs));
 		init(u, h, o);
@@ -451,7 +439,7 @@ int main(int argc, char **argv)
 
 		send_size = (ranges[0].rangeX + (2 * gs)) * (ranges[0].rangeY + (2 * gs));
 		for (z = 0; z < send_size; z++) {
-			v[z] = u[ind(absPosX(z, ranges[0].startX, ranges[0].rangeX), absPosY(z, ranges[0].startY, ranges[0].rangeY))];
+			v[z] = u[ind(absPosX(z, ranges[0].startX, ranges[0].rangeX), absPosY(z, ranges[0].startY, ranges[0].rangeX))];
 		}
 
 		/* Раздаем куски процессам */
@@ -466,7 +454,7 @@ int main(int argc, char **argv)
 				if(j == 3) n.p = 0.0;
 				n.vx = 0.0;
 				n.vy = 0.0;*/
-				send_buf[z] = u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))];
+				send_buf[z] = u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeX))];
 				//u[ind(absPosX(z, ranges[j].startX, ranges[j].rangeX), absPosY(z, ranges[j].startY, ranges[j].rangeY))] = n;
 			}
 			MPI_Send(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD);
@@ -480,7 +468,7 @@ int main(int argc, char **argv)
 		send_size = (range.rangeX + (2 * gs)) * (range.rangeY + (2 * gs));
 
 		MPI_Recv(u, send_size, phase_type, 0, 0, MPI_COMM_WORLD, &st);
-		if (processXIndex(rank,count) == m - 1) {
+		/*if (processXIndex(rank,count) != m - 1) {
 			for (k = 0; k < send_size; k ++) {
 				u[k].p = 0.0;
 			}
@@ -488,7 +476,7 @@ int main(int argc, char **argv)
 			for (k = 0; k < send_size; k ++) {
 				u[k].p = 1.0;
 			}
-		}
+		}*/
 	}
 
 	for (i = 0; i < steps; i++) {
@@ -498,7 +486,7 @@ int main(int argc, char **argv)
 			z = 0;
 			for (j = 0; j < range.rangeY; j++) {
 				for (k = 0; k < range.rangeX; k++) {
-					u[ind(absAbsPosX(z, ranges[0].startX, ranges[0].rangeX), absAbsPosY(z, ranges[0].startY, ranges[0].rangeY))] = v[relPos(k, j, range.rangeX)];
+					u[ind(absAbsPosX(z, ranges[0].startX, ranges[0].rangeX), absAbsPosY(z, ranges[0].startY, ranges[0].rangeX))] = v[relPos(k, j, range.rangeX)];
 					z += 1;
 				}
 			}
@@ -507,7 +495,7 @@ int main(int argc, char **argv)
 				send_buf = (node_t*)malloc(sizeof(node_t) * send_size);
 				MPI_Recv(send_buf, send_size, phase_type, j, 0, MPI_COMM_WORLD, &st);
 				for (z = 0; z < send_size; z++) {
-					u[ind(absAbsPosX(z, ranges[j].startX, ranges[j].rangeX), absAbsPosY(z, ranges[j].startY, ranges[j].rangeY))] = send_buf[z];
+					u[ind(absAbsPosX(z, ranges[j].startX, ranges[j].rangeX), absAbsPosY(z, ranges[j].startY, ranges[j].rangeX))] = send_buf[z];
 				}
 				free(send_buf);
 			}
@@ -528,16 +516,16 @@ int main(int argc, char **argv)
 
 		/* Обновляем значение. */
 		if (rank) {
-				//stepx(u, u1);
+				stepx(u, u1);
 				send_bounds_y(u1, rank, count);
 				get_bounds_y(u1, rank, count);
-				//stepy(u1, u);
+				stepy(u1, u);
 				if (i != steps - 1) send_bounds_x(u, rank, count);
 			} else {
-				//stepx(v, v1);
+				stepx(v, v1);
 				send_bounds_y(v1, rank, count);
 				get_bounds_y(v1, rank, count);
-				//stepy(v1, v);
+				stepy(v1, v);
 				if (i != steps - 1) send_bounds_x(v, rank, count);
 			}
 		
@@ -547,7 +535,7 @@ int main(int argc, char **argv)
 		/* Счетчик времени. */
 		t += dt;
 	}
-	printf("%d was here!\n", rank);
+//	printf("%d was here!\n", rank);
 	free(u);
 	if (rank) free(u1);
 	if (!rank) {
