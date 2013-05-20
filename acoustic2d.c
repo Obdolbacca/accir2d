@@ -231,10 +231,10 @@ range_t get_ranges(int rank, int count) {
 	range_t result;
 	result.rangeX = N[0] / m;
 	result.rangeY = N[1] / n;
-	result.startX = result.rangeX * processXIndex(rank, count) + gs;
-	result.startY = result.rangeY * processYIndex(rank, count);
-	if (nextXProcess(rank, count) == -1) result.rangeX = N[0] - gs - result.startX;
-	if (nextYProcess(rank, count) == -1) result.rangeY = N[1] - result.startY;
+	result.startX = result.rangeX * processXIndex(rank, count);
+	result.startY = result.rangeY * processYIndex(rank, count) + gs;
+	if (nextXProcess(rank, count) == -1) result.rangeX = N[0] - result.startX;
+	if (nextYProcess(rank, count) == -1) result.rangeY = N[1] - gs - result.startY;
 	return result;
 }
 
